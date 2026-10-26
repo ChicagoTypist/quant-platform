@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A股量化交易平台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="logo">Q</span> A股量化交易平台 <span class="ver" id="app-ver">v—</span></div>
+  <div class="topinfo">
+    <span class="pill" id="pill-market">行情加载中…</span>
+    <span class="pill" id="pill-broker">通道：—</span>
+    <span class="pill" id="pill-engine">引擎：停止</span>
+    <span class="pill warn" id="pill-live" style="display:none">实盘进行中</span>
+  </div>
+  <div class="topactions">
+    <a class="btn" href="/manual" target="_blank" title="操作手册：策略怎么部署、日常怎么监控、紧急情况怎么处理">📋 操作手册</a>
+    <a class="btn" href="/handbook" target="_blank" title="学习手册：读懂回测/因子/14个策略">📘 学习手册</a>
+    <button class="btn ok" id="btn-engine-start">启动引擎</button>
+    <button class="btn" id="btn-engine-stop">停止</button>
+    <button class="btn danger" id="btn-panic">急停清仓</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tabbtn active" data-tab="dash">总览</button>
+  <button class="tabbtn" data-tab="market">行情</button>
+  <button class="tabbtn" data-tab="strategy">策略</button>
+  <button class="tabbtn" data-tab="factor">因子实验室</button>
+  <button class="tabbtn" data-tab="screener">自动选股</button>
+  <button class="tabbtn" data-tab="optimizer">组合优化</button>
+  <button class="tabbtn" data-tab="ai">AI 选股助手</button>
+  <button class="tabbtn" data-tab="backtest">回测</button>
+  <button class="tabbtn" data-tab="trade">实盘交易</button>
+  <button class="tabbtn" data-tab="settings">设置</button>
+  <button class="tabbtn" data-tab="logs">日志</button>
+</nav>
+
+<main>
+
+<!-- ============ 总览 ============ -->
+<section class="tab active" id="tab-dash">
+  <div class="cards" id="dash-cards">
+    <div class="card"><div class="k">总资产</div><div class="v" id="c-total">—</div><div class="s" id="c-total-s"></div></div>
+    <div class="card"><div class="k">可用资金</div><div class="v" id="c-cash">—</div><div class="s" id="c-cash-s"></div></div>
+    <div class="card"><div class="k">持仓市值</div><div class="v" id="c-mv">—</div><div class="s" id="c-mv-s"></div></div>
+    <div class="card"><div class="k">当日盈亏</div><div class="v" id="c-day">—</div><div class="s" id="c-day-s"></div></div>
+    <div class="card"><div class="k">累计盈亏</div><div class="v" id="c-pnl">—</div><div class="s" id="c-pnl-s"></div></div>
+    <div class="card"><div class="k">今日成交</div><div class="v" id="c-orders">—</div><div class="s" id="c-orders-s"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h"><h3>资金曲线</h3><span class="hint" id="eq-hint"></span></div>
+      <canvas id="dash-equity" class="chart" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>大盘指数</h3></div>
+      <div id="dash-indices" class="indices"></div>
+      <div class="panel-h"><h3>引擎最近动作</h3></div>
+      <div id="dash-actions" class="mini-list">还没有动作</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h"><h3>模拟盘持仓</h3><span class="tag paper">虚拟资金</span><span class="hint" id="pos-paper-hint">数据来自本地模拟引擎</span></div>
+      <div class="tablewrap"><table id="dash-positions-paper"><thead><tr>
+        <th>代码</th><th>名称</th><th>持仓</th><th>可卖</th><th>成本</th><th>现价</th>
+        <th>市值</th><th>浮动盈亏</th><th>盈亏%</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>实盘持仓</h3><span class="tag live">真钱</span><span class="hint" id="pos-live-hint">数据来自券商通道</span></div>
+      <div class="tablewrap"><table id="dash-positions-live"><thead><tr>
+        <th>代码</th><th>名称</th><th>持仓</th><th>可卖</th><th>成本</th><th>现价</th>
+        <th>市值</th><th>浮动盈亏</th><th>盈亏%</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 行情 ============ -->
+<section class="tab" id="tab-market">
+  <div class="row">
+    <input id="mkt-search" class="input" placeholder="输入代码或名称，例如 600519 / 茅台 / 510300（ETF 也能搜）">
+    <button class="btn primary" id="mkt-search-btn">搜索</button>
+    <button class="btn" id="mkt-watch-btn">加自选</button>
+    <span class="hint" id="mkt-search-hint"></span>
+  </div>
+  <div id="mkt-results" class="chips"></div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h">
+        <h3 id="mkt-title">请先搜索并选择一只股票</h3>
+        <span class="hint" id="mkt-sub"></span>
+      </div>
+      <div class="quote-grid" id="mkt-quote"></div>
+      <div class="row chart-toolbar">
+        <button class="btn tiny per" data-p="daily">日K</button>
+        <button class="btn tiny per" data-p="weekly">周K</button>
+        <button class="btn tiny per" data-p="monthly">月K</button>
+        <button class="btn tiny per" data-p="60m">60分</button>
+        <button class="btn tiny per" data-p="15m">15分</button>
+        <label class="chk"><input type="checkbox" id="mkt-ma" checked> 均线</label>
+        <label class="chk"><input type="checkbox" id="mkt-boll"> 布林</label>
+        <label class="chk"><input type="checkbox" id="mkt-sub1"> MACD/RSI</label>
+      </div>
+      <canvas id="mkt-chart" class="chart" height="420"></canvas>
+      <div class="row">
+        <button class="btn ok" id="mkt-buy">买入</button>
+        <button class="btn danger" id="mkt-sell">卖出</button>
+        <span class="hint" id="mkt-orderhint"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h3>自选股</h3><span class="hint">点一下切换</span></div>
+      <div class="tablewrap"><table id="mkt-watch"><thead><tr>
+        <th>代码</th><th>名称</th><th>现价</th><th>涨跌%</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+
+      <div class="panel-h"><h3>涨幅榜</h3></div>
+      <div class="chips" id="mkt-rank-tabs">
+        <button class="btn tiny rk active" data-r="gainers">涨幅</button>
+        <button class="btn tiny rk" data-r="losers">跌幅</button>
+        <button class="btn tiny rk" data-r="amount">成交额</button>
+      </div>
+      <div class="tablewrap"><table id="mkt-rank"><thead><tr>
+        <th>代码</th><th>名称</th><th>现价</th><th>涨跌%</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 策略 ============ -->
+<section class="tab" id="tab-strategy">
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h"><h3>新建 / 编辑策略</h3><span class="hint">填好点【保存策略】</span></div>
+      <input type="hidden" id="st-id">
+      <label class="fld"><span>策略名称</span><input id="st-name" class="input" placeholder="例如：茅台均线策略"></label>
+      <label class="fld"><span>策略类型</span><select id="st-template" class="input"></select></label>
+      <div class="desc" id="st-desc"></div>
+      <div id="st-params" class="params"></div>
+      <label class="fld"><span>股票池（逗号分隔）</span>
+        <input id="st-symbols" class="input" placeholder="600519.SH,000001.SZ 或直接写 600519,000001">
+      </label>
+      <div class="chips" id="st-symbol-chips"></div>
+      <div class="panel-h" style="margin-top:8px"><h3>持仓权重（可选）</h3>
+        <span class="hint">留空 = 按策略默认分配；也可自由指定每只买多少</span></div>
+      <div class="row">
+        <select id="st-wmethod" class="input small" style="max-width:130px">
+          <option value="risk_parity">风险平价</option>
+          <option value="min_var">最小方差</option>
+          <option value="max_sharpe">最大夏普</option>
+          <option value="equal">等权</option>
+          <option value="factor">因子分加权</option>
+        </select>
+        <select id="st-wpreset" class="input small" style="max-width:170px"></select>
+        <button class="btn tiny primary" id="st-wcalc">一键计算最优权重</button>
+        <button class="btn tiny" id="st-wequal">平均分配</button>
+        <button class="btn tiny" id="st-wclear">清空</button>
+      </div>
+      <div id="st-weights" class="weightbox hint">填了股票池后，这里会出现每只股票的权重输入框。</div>
+      <label class="fld"><span>运行方式</span>
+        <select id="st-mode" class="input">
+          <option value="signal">只看信号（不下单，安全）</option>
+          <option value="auto">自动下单（引擎启动后按信号买卖）</option>
+        </select>
+      </label>
+      <div class="row">
+        <button class="btn primary" id="st-save">保存策略</button>
+        <button class="btn" id="st-preview">预览当前信号</button>
+        <button class="btn" id="st-new">清空表单</button>
+      </div>
+      <div id="st-preview-box" class="preview"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h3>我的策略</h3><span class="hint">启用后引擎才会执行</span></div>
+      <div id="st-list" class="strat-list"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 因子实验室 ============ -->
+<section class="tab" id="tab-factor">
+  <div class="panel">
+    <div class="panel-h"><h3>全因子扫描 · 当前哪个因子最有效</h3>
+      <span class="hint">用真实历史数据，把 75 个因子全测一遍</span></div>
+    <div class="desc">
+      打分规则：每天把股票池里所有股票按因子值排序，再按未来 N 日收益排序，
+      两条排名序列的相关系数就是当天的 <b>IC</b>。IC 长期为正，说明「因子值高 → 后面涨得多」。<br>
+      经验参考：|IC| &gt; 0.03 有点用，&gt; 0.05 算不错，&gt; 0.1 很强但很少见。
+      <b>这只是历史统计，因子会失效、会拥挤，不代表未来能赚钱。</b>
+    </div>
+    <div class="formgrid">
+      <label class="fld"><span>股票池（逗号分隔，建议 ≥20 只）</span>
+        <input id="fs-pool" class="input" placeholder="留空 = 用内置 40 只代表性股票"></label>
+      <label class="fld"><span>回看天数</span>
+        <select id="fs-days" class="input">
+          <option value="200">200 天（约 10 个月）</option>
+          <option value="300" selected>300 天（约 1.2 年）</option>
+          <option value="450">450 天（约 2 年）</option>
+        </select></label>
+      <label class="fld"><span>预测持有期</span>
+        <select id="fs-horizon" class="input">
+          <option value="1">1 天（短线）</option>
+          <option value="5" selected>5 天（一周）</option>
+          <option value="10">10 天（两周）</option>
+          <option value="20">20 天（一个月）</option>
+        </select></label>
+      <label class="fld"><span>行业中性化</span>
+        <label class="chk" style="padding-top:7px"><input type="checkbox" id="fs-neutral">
+          开启（推荐）</label>
+        <div class="help">把同行业股票的因子值互相比较，剔除「整个行业一起涨」造成的假信号</div>
+      </label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="fs-run">开始扫描</button>
+      <button class="btn" id="fs-force">强制重新扫描</button>
+      <span class="hint" id="fs-status">还没扫描过</span>
+    </div>
+    <div class="progress"><div class="progress-bar" id="fs-bar" style="width:0%"></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>因子排行榜</h3>
+      <span class="hint">按 |IC| 从高到低。点【详情】看曲线，点【建策略】直接拿来用</span></div>
+    <div class="tablewrap tall"><table id="fs-table"><thead><tr>
+      <th>#</th><th>因子</th><th>家族</th><th>IC均值</th><th>ICIR</th><th>t值</th>
+      <th>IC&gt;0占比</th><th>多空收益</th><th>结论</th><th>操作</th>
+    </tr></thead><tbody><tr><td colspan="10" class="empty">点上面的【开始扫描】</td></tr></tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>单因子详情</h3><span class="hint">也可以不扫描，直接看某一个因子</span></div>
+    <div class="formgrid">
+      <label class="fld"><span>选择因子</span><select id="fa-factor" class="input"></select></label>
+      <label class="fld"><span>股票池</span><input id="fa-pool" class="input" placeholder="留空 = 用内置池"></label>
+      <label class="fld"><span>回看天数</span><input id="fa-days" class="input" type="number" value="400"></label>
+      <label class="fld"><span>持有期(天)</span><input id="fa-horizon" class="input" type="number" value="5"></label>
+      <label class="fld"><span>行业中性化</span>
+        <label class="chk" style="padding-top:7px"><input type="checkbox" id="fa-neutral"> 开启</label></label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="fa-run">分析这个因子</button>
+      <span class="hint" id="fa-status"></span>
+    </div>
+    <div id="fa-desc" class="desc" style="display:none"></div>
+    <div id="fa-result" style="display:none">
+      <div class="cards" id="fa-cards"></div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h"><h3>IC 时间序列</h3><span class="hint">柱子越高说明那天因子越有效</span></div>
+          <canvas id="fa-icchart" class="chart" height="200"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h3>分层收益（第1组=因子分最高）</h3>
+            <span class="hint">单调递减说明因子有区分度</span></div>
+          <canvas id="fa-quant" class="chart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h3>今天的因子打分排名</h3>
+          <span class="hint">分数最高的在前，可以直接照着这个选股</span>
+          <button class="btn tiny primary" id="fa-mkstrat">用这个因子建策略</button></div>
+        <div class="tablewrap"><table id="fa-latest"><thead><tr>
+          <th>排名</th><th>代码</th><th>名称</th><th>因子值</th><th>最新价</th><th>操作</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>因子相关性检测 · 找出「重复的因子」</h3>
+      <span class="hint">多个因子如果高度相关，等于在测同一件事，组合会悄悄把风险集中在一个方向上</span></div>
+    <div class="desc">
+      多因子组合最怕「表面好几个因子、实际在测同一个东西」。比如把 mom_5 / mom_10 / mom_20 /
+      mom_60 都塞进组合，它们彼此相关 0.8+，动量等于被计了 4 遍，一旦动量失效整个组合一起崩。
+      先在这里查一下，把高度相关的因子去掉或合并，组合才真的分散。
+    </div>
+    <div class="formgrid">
+      <label class="fld"><span>待检查因子（逗号分隔）</span>
+        <input id="fc-factors" class="input" value="mom_5,mom_10,mom_20,mom_60,rev_1,rev_5"></label>
+      <label class="fld"><span>股票池</span>
+        <input id="fc-pool" class="input" placeholder="留空 = 用内置池"></label>
+      <label class="fld"><span>回看天数</span>
+        <input id="fc-days" class="input" type="number" value="400"></label>
+      <label class="fld"><span>冗余阈值</span>
+        <input id="fc-threshold" class="input" type="number" value="0.7" step="0.05"></label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="fc-run">检测相关性</button>
+      <span class="hint" id="fc-status"></span>
+    </div>
+    <div id="fc-result" style="display:none">
+      <div id="fc-advice" class="warnbox" style="display:none"></div>
+      <div class="tablewrap"><table id="fc-table"><thead><tr>
+        <th>因子 A</th><th>因子 B</th><th>相关系数</th><th>判断</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>因子说明书</h3><span class="hint">共 <b id="fc-count">0</b> 个因子，按家族分组</span></div>
+    <div class="chips" id="fc-families"></div>
+    <input id="fc-search" class="input" placeholder="搜索因子名或说明文字…" style="margin:8px 0">
+    <div id="fc-list" class="factlist"></div>
+  </div>
+
+  <div class="panel dl-panel">
+    <div class="panel-h"><h3>🧠 AI 深度学习因子 · 机器自动挖因子</h3>
+      <span class="pill" id="dl-pill">未训练</span></div>
+    <div class="desc">
+      不用手写公式：一个小型神经网络（纯 Python 实现，零依赖）会自己从 K 线里
+      「学」出一个新因子，再用遗传算法自动搜索最优结构，最后用 <b>样本外 IC</b>
+      挑出防过拟合的模型。学出来的因子会注册进上面的因子实验室，和别的因子一起比 IC。<br>
+      <b>注意：</b>深度学习因子和人工因子一样会失效，样本外 IC &lt; 0.03 说明这次没挖到稳定信号（正常现象，换股票池重试）。
+    </div>
+    <div class="formgrid">
+      <label class="fld"><span>训练目标</span>
+        <select id="dl-task" class="input">
+          <option value="cross_section" selected>横截面选股因子（给股票打分排序）</option>
+          <option value="time_series">时序择时信号（判断单只股票涨跌）</option>
+        </select></label>
+      <label class="fld"><span>股票池（逗号分隔）</span>
+        <input id="dl-pool" class="input" placeholder="留空 = 用内置 40 只代表性股票"></label>
+      <label class="fld"><span>回看天数</span>
+        <select id="dl-days" class="input">
+          <option value="250">250 天（约 1 年）</option>
+          <option value="400" selected>400 天（约 1.6 年）</option>
+          <option value="600">600 天（约 2.5 年）</option>
+        </select></label>
+      <label class="fld"><span>预测持有期</span>
+        <select id="dl-horizon" class="input">
+          <option value="1">1 天（短线）</option>
+          <option value="5" selected>5 天（一周）</option>
+          <option value="10">10 天（两周）</option>
+          <option value="20">20 天（一个月）</option>
+        </select></label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="dl-run">开始训练</button>
+      <button class="btn" id="dl-preview">用已训练模型打分</button>
+      <span class="hint" id="dl-status">还没训练过</span>
+    </div>
+    <div class="progress"><div class="progress-bar" id="dl-bar" style="width:0%"></div></div>
+
+    <div id="dl-result" style="display:none">
+      <div class="cards" id="dl-cards"></div>
+      <div id="dl-verdict" class="desc"></div>
+      <div class="panel">
+        <div class="panel-h"><h3>模型给当前股票池打的分数</h3>
+          <span class="hint">分数越高，模型越看好</span></div>
+        <div class="tablewrap"><table id="dl-table"><thead><tr>
+          <th>#</th><th>代码</th><th>名称</th><th>最新价</th><th>AI 分数</th><th>日期</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 组合优化 ============ -->
+<section class="tab" id="tab-optimizer">
+  <div class="panel">
+    <div class="panel-h"><h3>组合优化 · 决定每只股票买多少钱</h3>
+      <span class="hint">选股之后，怎么分配仓位</span></div>
+    <div class="desc">
+      同一批股票，权重怎么给，长期结果差别很大。<br>
+      · <b>等权</b>：最简单，也是最难被打败的基准<br>
+      · <b>风险平价</b>：「每只股票贡献的风险一样大」——低波动股多买，高波动股少买，长期夏普通常最好<br>
+      · <b>最小方差</b>：把组合波动压到最低，熊市抗跌、牛市跑得慢<br>
+      · <b>最大夏普</b>：用因子分当预期收益，找收益/风险比最高的组合<br>
+      · <b>因子分加权</b>：最看好就买最多，进攻性强但会集中押注
+    </div>
+    <div class="formgrid">
+      <label class="fld"><span>股票池（逗号分隔，建议 ≥8 只）</span>
+        <input id="op-symbols" class="input" placeholder="留空 = 用内置池"></label>
+      <label class="fld"><span>因子组合</span><select id="op-preset" class="input"></select></label>
+      <label class="fld"><span>优化方法</span><select id="op-method" class="input"></select></label>
+      <label class="fld"><span>总仓位上限(%)</span><input id="op-total" class="input" type="number" value="90"></label>
+      <label class="fld"><span>单只上限(%)</span><input id="op-single" class="input" type="number" value="15"></label>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="op-run">开始优化</button>
+      <span class="hint" id="op-status"></span>
+    </div>
+  </div>
+
+  <div id="op-result" style="display:none">
+    <div class="cards" id="op-cards"></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-h"><h3>各股票权重</h3><span class="hint">每只买多少钱</span></div>
+        <canvas id="op-wchart" class="chart" height="280"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h3>风险贡献度</h3>
+          <span class="hint">风险平价的目标是「每根柱子一样高」</span></div>
+        <canvas id="op-rchart" class="chart" height="280"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>权重明细</h3></div>
+      <div id="op-note" class="warnbox" style="display:none"></div>
+      <div class="tablewrap tall"><table id="op-table"><thead><tr>
+        <th>代码</th><th>名称</th><th>行业</th><th>因子分</th><th>权重%</th><th>风险贡献%</th><th>金额(按10万本金)</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 自动选股 ============ -->
+<section class="tab" id="tab-screener">
+  <div class="panel">
+    <div class="panel-h"><h3>全市场自动选股</h3>
+      <span class="pill" id="sc-snap">正在读取全市场…</span>
+      <span class="hint">一次扫描 5900+ 只，按主流量化选股逻辑自动挑出最值得关注的</span>
+      <button class="btn tiny" id="sc-refresh">刷新行情</button></div>
+    <div class="desc">
+      和主流量化选股的做法一致，分三步：<b>粗筛</b>（剔除 ST / 次新 / 停牌 / 涨跌停 /
+      成交额太小 / 市值不合适）→ <b>横截面因子打分</b>（把每个因子换成百分位排名再按权重加权，
+      这是券商金工多因子模型的标准做法）→ <b>精筛</b>（只对短名单拉 K 线，算真实波动率、
+      均线多头排列、突破、回调位置）。<br>
+      选完之后可以<b>一键生成策略</b>（股票池和权重都填好），也可以加入自选。
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>选股模板 · 主流策略</h3>
+      <span class="hint">点一个模板，下面会显示它用了哪些因子和权重</span></div>
+    <div class="presetgrid" id="sc-presets"></div>
+    <div id="sc-preset-desc" class="desc" style="margin-top:8px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>筛选条件（粗筛）</h3>
+      <span class="hint">把明显不要的先剔除掉</span></div>
+    <div class="formgrid">
+      <label class="fld"><span>选几只</span><input id="sc-topn" class="input" type="number" value="20" min="1" max="100"></label>
+      <label class="fld"><span>最低成交额（万元）</span><input id="sc-amount" class="input" type="number" value="5000" step="1000"></label>
+      <label class="fld"><span>最小总市值（亿元）</span><input id="sc-mktcap" class="input" type="number" value="20" step="10"></label>
+      <label class="fld"><span>最大总市值（亿元，0=不限）</span><input id="sc-mktcapmax" class="input" type="number" value="0" step="100"></label>
+      <label class="fld"><span>上市至少（天）</span><input id="sc-listed" class="input" type="number" value="120" step="30"></label>
+      <label class="fld"><span>最低股价（元）</span><input id="sc-price" class="input" type="number" value="3" step="1"></label>
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:14px">
+      <label class="chk"><input type="checkbox" id="sc-st" checked> 剔除 ST / 退市</label>
+      <label class="chk"><input type="checkbox" id="sc-limit" checked> 剔除涨跌停</label>
+      <label class="chk"><input type="checkbox" id="sc-loss"> 剔除亏损股</label>
+      <label class="chk"><input type="checkbox" id="sc-tech" checked> 技术面精筛（较慢但更准）</label>
+      <label class="chk"><input type="checkbox" id="sc-neutral"> 行业中性化</label>
+      <label class="chk" title="给短名单补上 PE/PB 近5年分位与股息率，估值越便宜加分越多。没配数据令牌时自动跳过"><input type="checkbox" id="sc-fnd" checked> 估值分位增强</label>
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:14px;margin-top:6px">
+      <span class="hint">板块：</span>
+      <label class="chk"><input type="checkbox" class="sc-board" value="沪主板" checked> 沪主板</label>
+      <label class="chk"><input type="checkbox" class="sc-board" value="深主板" checked> 深主板</label>
+      <label class="chk"><input type="checkbox" class="sc-board" value="创业板" checked> 创业板</label>
+      <label class="chk"><input type="checkbox" class="sc-board" value="科创板" checked> 科创板</label>
+      <label class="chk"><input type="checkbox" class="sc-board" value="北交所"> 北交所</label>
+    </div>
+    <label class="fld" style="margin-top:8px"><span>排除这些行业（逗号分隔，可留空）</span>
+      <input id="sc-exind" class="input" placeholder="例如：银行,白酒"></label>
+    <div class="row">
+      <button class="btn primary big" id="sc-run">开始选股</button>
+      <button class="btn" id="sc-advanced">自定义因子权重…</button>
+      <span class="hint" id="sc-status"></span>
+    </div>
+    <div id="sc-weights" style="display:none"></div>
+  </div>
+
+  <div id="sc-result" style="display:none">
+    <div class="panel">
+      <div class="panel-h"><h3>选股结果</h3>
+        <span class="pill" id="sc-meta"></span>
+        <button class="btn tiny primary" id="sc-tostrategy">一键生成策略</button>
+        <button class="btn tiny" id="sc-towatch">加入自选</button>
+        <button class="btn tiny" id="sc-export">导出 CSV</button>
+      </div>
+      <div id="sc-warn" class="warnbox" style="display:none"></div>
+      <div class="funnel" id="sc-funnel"></div>
+      <div class="tablewrap tall"><table id="sc-table"><thead><tr>
+        <th>#</th><th>代码</th><th>名称</th><th>行业</th><th>现价</th><th>今日%</th>
+        <th>市盈率</th><th title="PE 在近 5 年的分位，越低越便宜">PE分位%</th>
+        <th title="股息率(TTM)">股息%</th>
+        <th>ROE%</th><th>市值(亿)</th><th>换手%</th><th>主力净占比%</th>
+        <th>60日%</th><th>得分</th><th>为什么选它</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="hint" style="margin-top:8px">
+        「为什么选它」显示的是这只股票在该模板权重最高的几个因子上排在多少百分位（越高越好）。
+        得分是各因子百分位的加权平均，0~100。
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>个股基本面速查</h3>
+      <span class="hint">查估值分位、申万三级行业、分红送配（可选增强，不影响回测）</span></div>
+    <div class="row" style="flex-wrap:wrap;gap:10px">
+      <input id="fn-sym" class="input" style="flex:1;min-width:180px" placeholder="股票代码，如 600519.SH">
+      <button class="btn" id="fn-run">查询</button>
+      <button class="btn tiny" id="fn-clear" title="清空本机缓存，下次重新抓">清缓存</button>
+      <span class="hint" id="fn-status"></span>
+    </div>
+    <div id="fn-result" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ============ AI 选股助手 ============ -->
+<section class="tab" id="tab-ai">
+  <div class="panel aiwrap">
+    <div class="panel-h">
+      <h3>AI 选股助手</h3>
+      <span class="pill" id="ai-mode">本地模式</span>
+      <span class="hint">所有数字都由平台自己算出来，可追溯、不瞎编</span>
+    </div>
+    <div class="chips" id="ai-quick">
+      <span class="chip" onclick="aiAsk('今天买什么')">今天买什么</span>
+      <span class="chip" onclick="aiAsk('有什么回调到支撑的股票')">回调到支撑的股票</span>
+      <span class="chip" onclick="aiAsk('我的持仓怎么样')">我的持仓怎么样</span>
+      <span class="chip" onclick="aiAsk('今天大盘怎么样')">今天大盘怎么样</span>
+      <span class="chip" onclick="aiAsk('现在哪个因子有效')">现在哪个因子有效</span>
+      <span class="chip" onclick="aiAsk('分析一下 600519')">分析 600519</span>
+      <span class="chip" onclick="aiAsk('帮助')">你能做什么</span>
+      <span class="chip" onclick="aiClear()">清空对话</span>
+    </div>
+    <div id="ai-chat" class="chat"></div>
+    <div class="row">
+      <input id="ai-input" class="input" style="flex:1" placeholder="问我任何选股问题，比如：今天买什么 / 分析一下 000001 / 我的持仓怎么样">
+      <button class="btn primary" id="ai-send">发送</button>
+    </div>
+    <div class="hint" id="ai-hint">提示：第一次问「今天买什么」需要几十秒（要拉几百只股票算因子），之后会走缓存、秒回。</div>
+  </div>
+</section>
+
+<!-- ============ 回测 ============ -->
+<section class="tab" id="tab-backtest">
+  <div class="panel">
+    <div class="panel-h"><h3>回测设置</h3><span class="hint">用历史数据检验策略，不花一分钱</span></div>
+    <div class="formgrid">
+      <label class="fld"><span>从已保存策略载入（可选）</span><select id="bt-from-strategy" class="input"></select></label>
+      <label class="fld"><span>策略类型</span><select id="bt-template" class="input"></select></label>
+      <label class="fld"><span>股票池（可多只，逗号分隔）</span><input id="bt-symbols" class="input" value="600519.SH,000001.SZ,300750.SZ"></label>
+      <label class="fld"><span>开始日期</span><input id="bt-start" class="input" type="date" value="2022-01-01"></label>
+      <label class="fld"><span>结束日期</span><input id="bt-end" class="input" type="date"></label>
+      <label class="fld"><span>初始资金（元）</span><input id="bt-capital" class="input" type="number" value="200000"></label>
+      <label class="fld"><span>单只股票仓位%（留空=平均分配）</span><input id="bt-pct" class="input" type="number" placeholder="例如 30"></label>
+    </div>
+    <div id="bt-params" class="params"></div>
+    <div class="row">
+      <button class="btn primary" id="bt-run">开始回测</button>
+      <button class="btn" id="bt-wf" title="用滚动样本外检验策略是否过拟合，比普通回测更接近真实表现">样本外验证（防过拟合）</button>
+      <span class="hint" id="bt-hint"></span>
+    </div>
+  </div>
+
+  <div id="bt-result" style="display:none">
+    <div id="bt-warn" class="panel warnbox" style="display:none"></div>
+    <div class="cards" id="bt-cards"></div>
+    <div class="panel" id="bt-attr" style="display:none">
+      <div class="panel-h"><h3>收益归因：钱是怎么赚/亏的</h3><span class="hint">市场给的 ≠ 自己赚的，拆开看才不会被牛市骗</span></div>
+      <div class="cards" id="bt-attr-cards"></div>
+      <div class="grid3" id="bt-attr-detail"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-h"><h3>资金曲线（对比沪深300）</h3></div>
+        <canvas id="bt-chart" class="chart" height="260"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h3>成交明细</h3><span class="hint" id="bt-trades-hint"></span></div>
+        <div class="tablewrap tall"><table id="bt-trades"><thead><tr>
+          <th>日期</th><th>代码</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>盈亏</th><th>原因</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bt-wf-result" class="panel" style="display:none">
+    <div class="panel-h"><h3>样本外验证（Walk-forward）结果</h3><span class="hint">每个窗口：用「训练段」选参数，「样本外段」检验，只看样本外才接近实盘</span></div>
+    <div id="bt-wf-summary" class="warnbox" style="display:none"></div>
+    <div class="cards" id="bt-wf-cards"></div>
+    <div class="tablewrap"><table id="bt-wf-table"><thead><tr>
+      <th>训练段</th><th>样本外段</th><th>样本内收益</th><th>样本外收益</th><th>样本外夏普</th><th>样本外回撤</th><th>样本外超额</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>历史回测记录</h3></div>
+    <div class="tablewrap"><table id="bt-history"><thead><tr>
+      <th>时间</th><th>名称</th><th>策略</th><th>股票</th><th></th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- ============ 实盘交易 ============ -->
+<section class="tab" id="tab-trade">
+  <div class="panel danger-panel" id="live-panel">
+    <div class="panel-h"><h3>实盘总开关</h3></div>
+    <div id="live-body"></div>
+  </div>
+
+  <div class="panel deploy-panel">
+    <div class="panel-h"><h3>自动交易中的策略</h3>
+      <span class="pill" id="rt-count">0 个</span>
+      <span class="hint">这些策略已获授权，引擎会自动替它们下单 —— 你只需要监控</span>
+      <button class="btn tiny" id="rt-refresh">刷新</button>
+      <button class="btn tiny ok" id="rt-tostrategy">去策略页部署新策略</button>
+    </div>
+    <div class="tablewrap"><table id="rt-table"><thead><tr>
+      <th>策略</th><th>模式</th><th>状态</th><th>资金额度</th><th>已用</th><th>止损</th>
+      <th>持仓</th><th>浮动盈亏</th><th>今日动作</th><th>授权到期</th><th>操作</th>
+    </tr></thead><tbody><tr><td colspan="11" class="empty">
+      还没有部署任何策略。去【策略】页把策略配好，点【部署·开始自动交易】。
+    </td></tr></tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>实盘就绪检查</h3>
+      <span class="hint">开实盘之前，这几项必须过</span>
+      <button class="btn tiny" id="pf-refresh">重新检查</button></div>
+    <div id="pf-box"></div>
+  </div>
+
+  <div class="panel ticket-panel">
+    <div class="panel-h"><h3>待确认委托单</h3>
+      <span class="pill" id="tk-count">0 张</span>
+      <span class="hint">策略出信号后先放到这里，你点【发送】才真的发到券商</span>
+      <button class="btn tiny ok" id="tk-send-all">全部发送</button>
+      <button class="btn tiny" id="tk-clear">清理已处理</button>
+      <button class="btn tiny" id="tk-refresh">刷新</button>
+    </div>
+    <div class="tablewrap tall"><table id="tk-table"><thead><tr>
+      <th>时间</th><th>来源</th><th>代码</th><th>名称</th><th>方向</th><th>数量</th>
+      <th>委托价</th><th>现价</th><th>理由</th><th>状态</th><th>操作</th>
+    </tr></thead><tbody><tr><td colspan="11" class="empty">暂时没有待确认的委托单</td></tr></tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>交易通道</h3><span class="hint">模拟盘随便用；同花顺 / QMT 才是真钱</span></div>
+    <div id="br-list" class="broker-list"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h"><h3>手动下单</h3><span class="hint" id="od-hint"></span></div>
+      <div class="formgrid">
+        <label class="fld"><span>股票代码</span><input id="od-symbol" class="input" placeholder="600519"></label>
+        <label class="fld"><span>方向</span><select id="od-side" class="input"><option value="buy">买入</option><option value="sell">卖出</option></select></label>
+        <label class="fld"><span>价格（留空=市价）</span><input id="od-price" class="input" type="number" step="0.01"></label>
+        <label class="fld"><span>数量（股）</span><input id="od-qty" class="input" type="number" step="100"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="od-submit">提交委托</button>
+        <button class="btn" id="od-max">算最大可买</button>
+        <button class="btn" id="od-25">1/4 仓</button>
+        <button class="btn" id="od-50">半仓</button>
+      </div>
+      <div class="hint" id="od-msg"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h3>持仓止损监控</h3>
+        <span class="hint">止损位 = 全局止损价 和 技术支撑位 里更紧的那个</span>
+        <button class="btn tiny" id="st-refresh">刷新</button>
+        <button class="btn tiny danger" id="st-all">一键全部止损</button></div>
+      <div class="tablewrap tall"><table id="st-table"><thead><tr>
+        <th>代码</th><th>名称</th><th>可卖</th><th>成本</th><th>现价</th><th>盈亏%</th>
+        <th>止损位</th><th>距止损</th><th>止损依据</th><th>提醒</th><th></th>
+      </tr></thead><tbody><tr><td colspan="11" class="empty">当前没有持仓</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h3>当日交易报告</h3>
+      <span class="hint" id="rp-hint"></span>
+      <button class="btn tiny" id="rp-refresh">刷新</button></div>
+    <div class="cards" id="rp-cards"></div>
+    <div class="tablewrap"><table id="rp-trades"><thead><tr>
+      <th>时间</th><th>代码</th><th>名称</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>盈亏</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h"><h3>当日委托</h3>
+        <button class="btn tiny" id="od-sync">从券商同步状态</button></div>
+      <div class="tablewrap tall"><table id="tr-orders"><thead><tr>
+        <th>时间</th><th>代码</th><th>方向</th><th>价格</th><th>数量</th><th>已成</th><th>状态</th><th>说明</th><th></th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>成交记录</h3></div>
+      <div class="tablewrap tall"><table id="tr-trades"><thead><tr>
+        <th>时间</th><th>代码</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>盈亏</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 设置 ============ -->
+<section class="tab" id="tab-settings">
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-h"><h3>模拟盘与费率</h3></div>
+      <div class="formgrid" id="set-paper"></div>
+      <div class="hint" style="margin:10px 0 8px;line-height:1.75">
+        <b>费率怎么记账：</b>买入手续费摊进持仓成本（体现为浮盈少一点），
+        卖出手续费直接从现金里扣（混在已实现盈亏里）。两笔都已经计入总资产，
+        不会重复扣，也不会漏扣。<br>
+        <b>改费率的影响范围：</b>只对<strong>之后的新成交</strong>生效。历史成交按当时费率真实入账、
+        不做追溯改账（改了现金和持仓成本就对不上）。总览的「累计盈亏」会同时显示
+        按当前费率重算的对照值，方便你比较。<br>
+        <b>滑点：</b>直接做进成交价里，事后无法从价格中拆分，因此重算对照值只含佣金/印花税/过户费。<br>
+        <b>初始资金：</b>这一项只决定「以后重置时用多少钱」。要让当前账户金额变，请点下面的「重置模拟盘资金」。
+      </div>
+      <div class="row"><button class="btn" id="set-reset-paper">重置模拟盘资金</button><span class="hint">会清空模拟持仓和成交</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>风控（强烈建议保持开启）</h3></div>
+      <div class="formgrid" id="set-risk"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>交易规则</h3></div>
+      <div class="formgrid" id="set-trading"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>服务与界面</h3></div>
+      <div class="formgrid" id="set-server"></div>
+      <div class="row"><button class="btn" id="set-reset-all">恢复全部默认设置</button></div>
+    </div>
+  </div>
+  <div class="row"><button class="btn primary" id="set-save">保存全部设置</button><span class="hint" id="set-msg"></span></div>
+  <div class="panel">
+    <div class="panel-h"><h3>数据与文件位置</h3></div>
+    <div class="hint" id="set-paths"></div>
+  </div>
+</section>
+
+<!-- ============ 日志 ============ -->
+<section class="tab" id="tab-logs">
+  <div class="row">
+    <select id="log-level" class="input small"><option value="">全部级别</option><option>INFO</option><option>WARN</option><option>ERROR</option></select>
+    <select id="log-source" class="input small"><option value="">全部来源</option></select>
+    <button class="btn" id="log-refresh">刷新</button>
+    <button class="btn" id="log-clear">清空日志</button>
+    <label class="chk"><input type="checkbox" id="log-auto" checked> 自动刷新</label>
+  </div>
+  <div class="panel"><div id="log-list" class="loglist"></div></div>
+</section>
+
+</main>
+
+<!-- 下单弹窗 -->
+<div class="modal" id="modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-h"><h3 id="modal-title">下单</h3><button class="btn tiny" id="modal-close">关闭</button></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

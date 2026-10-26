@@ -1,0 +1,46 @@
+@echo off
+chcp 936 >nul 2>nul
+title A股量化交易平台
+cd /d "%~dp0"
+setlocal enabledelayedexpansion
+
+echo.
+echo   ==========================================================
+echo             A 股 量 化 交 易 平 台     v1.0
+echo   ==========================================================
+echo.
+
+set "PYEXE="
+if exist "%~dp0python\python.exe" set "PYEXE=%~dp0python\python.exe"
+if not defined PYEXE if exist "%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe" set "PYEXE=%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
+if not defined PYEXE (
+  where py.exe >nul 2>nul && set "PYEXE=py -3"
+)
+if not defined PYEXE (
+  where python.exe >nul 2>nul && set "PYEXE=python"
+)
+
+if not defined PYEXE (
+  echo   [X] 没有找到 Python，程序无法启动。
+  echo.
+  echo   解决办法：
+  echo     1. 到 https://www.python.org/downloads/ 下载安装 Python 3.9 以上版本
+  echo     2. 安装时务必勾选 Add Python to PATH
+  echo     3. 装完重新双击本文件
+  echo.
+  echo   或者双击 自检.bat 看更详细的提示。
+  echo.
+  pause
+  exit /b 1
+)
+
+echo   使用的 Python: !PYEXE!
+echo   正在启动，浏览器会自动打开平台页面，请稍等几秒...
+echo   使用中请不要关闭这个黑窗口，关掉它就等于关掉程序。
+echo.
+
+!PYEXE! -m app.main %*
+
+echo.
+echo   程序已经退出。按任意键关闭窗口。
+pause >nul
